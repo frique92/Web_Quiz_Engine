@@ -9,22 +9,10 @@ files:
     import com.google.gson.*;
     import org.apache.http.HttpHeaders;
     import org.apache.http.entity.ContentType;
-    import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-    import org.hyperskill.hstest.v6.mocks.web.response.HttpResponse;
-    import org.hyperskill.hstest.v6.testcase.CheckResult;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.mocks.web.response.HttpResponse;
 
-    import java.nio.charset.StandardCharsets;
-    import java.util.Base64;
     import java.util.Map;
-    import java.util.function.BiFunction;
-
-    import static org.hyperskill.hstest.v6.mocks.web.request.HttpRequestExecutor.packUrlParams;
-
-    class WrongAnswer extends RuntimeException {
-        public WrongAnswer(String msg) {
-            super(msg);
-        }
-    }
 
     class HttpResp {
         private String url;
@@ -71,20 +59,6 @@ files:
     }
 
     public class TestHelper {
-        // Function just to be able to throw WrongAnswer
-        // as the way to fail the test
-        static <T> BiFunction<String, T, CheckResult> wrap(
-            BiFunction<String, T, CheckResult> original) {
-
-            return (r, a) -> {
-                try {
-                    return original.apply(r, a);
-                } catch (WrongAnswer ex) {
-                    return CheckResult.FALSE(ex.getMessage());
-                }
-            };
-        }
-
         static void checkStatusCode(HttpResp resp, int status) {
             if (resp.getStatusCode() != status) {
                 throw new WrongAnswer(
@@ -133,38 +107,6 @@ files:
         static JsonElement getJson(String json) {
             return new JsonParser().parse(json);
         }
-
-        static private String constructUrl(String address) {
-            if (!address.startsWith("/")) {
-                address = "/" + address;
-            }
-            return "http://localhost:8889" + address;
-        }
-
-        static HttpRequest post(String address, Map<String, String> params) {
-            return new HttpRequest("POST")
-                .setUri(constructUrl(address))
-                .setContent(packUrlParams(params))
-                .setContentType(ContentType.APPLICATION_FORM_URLENCODED);
-        }
-
-        static HttpRequest put(String address, Map<String, String> params) {
-            return new HttpRequest("PUT")
-                .setUri(constructUrl(address))
-                .setContent(packUrlParams(params))
-                .setContentType(ContentType.APPLICATION_FORM_URLENCODED);
-        }
-
-        static HttpRequest auth(HttpRequest req, String login, String pass) {
-            String headerKey = "Authorization";
-            String beforeEncoding = login + ":" + pass;
-            String afterEncoding = new String(
-                Base64.getEncoder().encode(beforeEncoding.getBytes())
-            );
-            String headerValue = "Basic " + afterEncoding;
-            req.addHeader(headerKey, headerValue);
-            return req;
-        }
     }
   learner_created: false
 - name: test/tests/WebQuizEngineTest.java
@@ -176,69 +118,19 @@ files:
     import com.google.gson.JsonElement;
     import com.google.gson.JsonObject;
     import engine.WebQuizEngine;
-    import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-    import org.hyperskill.hstest.v6.stage.SpringTest;
-    import org.hyperskill.hstest.v6.testcase.CheckResult;
-    import org.hyperskill.hstest.v6.testcase.TestCase;
-    import org.junit.AfterClass;
-    import org.junit.BeforeClass;
+    import org.hyperskill.hstest.dynamic.input.DynamicTesting;
+    import org.hyperskill.hstest.dynamic.input.DynamicTestingMethod;
+    import org.hyperskill.hstest.exception.outcomes.FatalError;
+    import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+    import org.hyperskill.hstest.stage.SpringTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
 
-    import java.io.File;
-    import java.io.IOException;
-    import java.lang.reflect.Method;
-    import java.nio.file.Files;
-    import java.nio.file.Path;
-    import java.nio.file.Paths;
-    import java.util.ArrayList;
-    import java.util.List;
-    import java.util.Map;
-    import java.util.function.BiFunction;
-
-    import static org.hyperskill.hstest.v6.common.ReflectionUtils.getMainMethod;
     import static tests.TestHelper.*;
     import static tests.ApiTester.*;
 
     public class WebQuizEngineTest extends SpringTest {
-
         public WebQuizEngineTest() {
-            super(WebQuizEngine.class, 8889);
-        }
-
-        @BeforeClass
-        public static void replaceDatabase() {
-            String dbFilePath = System.getProperty("user.dir")
-                + File.separator + "../quizdb.mv.db";
-
-            String dbTempFilePath = dbFilePath + "-real";
-
-            Path dbFile = Paths.get(dbFilePath);
-            Path dbTempFile = Paths.get(dbTempFilePath);
-
-            try {
-                if (dbFile.toFile().isFile() && !dbTempFile.toFile().exists()) {
-                    Files.move(dbFile, dbTempFile);
-                }
-            } catch (IOException ignored) { }
-        }
-
-        @AfterClass
-        public static void revertDatabase() throws Exception {
-            Thread.sleep(1000);
-
-            String dbFilePath = System.getProperty("user.dir")
-                + File.separator + "../quizdb.mv.db";
-
-            String dbTempFilePath = dbFilePath + "-real";
-
-            Path dbFile = Paths.get(dbFilePath);
-            Path dbTempFile = Paths.get(dbTempFilePath);
-
-            try {
-                Files.deleteIfExists(dbFile);
-                if (dbTempFile.toFile().isFile()) {
-                    Files.move(dbTempFile, dbFile);
-                }
-            } catch (IOException ignored) { }
+            super(WebQuizEngine.class, 8889, "../quizdb.mv.db");
         }
 
         private static String quiz1 =
@@ -377,7 +269,7 @@ files:
                 login = fakeLogin;
                 pass = fakePass;
             }
-            return TestHelper.auth(req, login, pass);
+            return req.basicAuth(login, pass);
         }
 
         private static String fakeLogin = "qwerty@google.com";
@@ -398,312 +290,300 @@ files:
         private static String shortPassword2_login = "someuser2@gmail.com";
         private static String shortPassword2_pass = "123";
 
-        private List<TestCase> generateStringTests() {
-            BiFunction[] lambdasForTests = new BiFunction[] {
-                // Test login
-                (r, a) -> testRegister(login1, pass1, 200),
-                (r, a) -> testRegister(login2, pass2, 200),
-                (r, a) -> testRegister(noAtInLogin_login, noAtInLogin_pass, 400),
-                (r, a) -> testRegister(noDotInLogin_login, noDotInLogin_pass, 400),
-                (r, a) -> testRegister(loginExist_login, loginExist_pass, 400),
-                (r, a) -> testRegister(shortPassword_login, shortPassword_pass, 400),
-                (r, a) -> testRegister(shortPassword2_login, shortPassword2_pass, 400),
+        @DynamicTestingMethod
+        DynamicTesting[] dt = new DynamicTesting[] {
+            // Test login
+            () -> testRegister(login1, pass1, 200),
+            () -> testRegister(login2, pass2, 200),
+            () -> testRegister(noAtInLogin_login, noAtInLogin_pass, 400),
+            () -> testRegister(noDotInLogin_login, noDotInLogin_pass, 400),
+            () -> testRegister(loginExist_login, loginExist_pass, 400),
+            () -> testRegister(shortPassword_login, shortPassword_pass, 400),
+            () -> testRegister(shortPassword2_login, shortPassword2_pass, 400),
 
 
-                // Add 2 quizzes and check their existence
-                (r, a) -> testAllQuizzes(0, 0,1),
-                (r, a) -> testAllQuizzes(0, 0,2),
+            // Add 2 quizzes and check their existence
+            () -> testAllQuizzes(0, 0,1),
+            () -> testAllQuizzes(0, 0,2),
 
-                (r, a) -> testCreateQuiz(0, 1),
-                (r, a) -> testQuizExists(0, 2),
-                (r, a) -> testQuizNotExists(0, 2, 125),
+            () -> testCreateQuiz(0, 1),
+            () -> testQuizExists(0, 2),
+            () -> testQuizNotExists(0, 2, 125),
 
-                (r, a) -> testAllQuizzes(1, 0,1),
+            () -> testAllQuizzes(1, 0,1),
 
-                (r, a) -> testCreateQuiz(1, 2),
-                (r, a) -> testQuizExists(1, 2),
-                (r, a) -> testQuizNotExists(1, 2, 125),
+            () -> testCreateQuiz(1, 2),
+            () -> testQuizExists(1, 2),
+            () -> testQuizNotExists(1, 2, 125),
 
-                (r, a) -> testAllQuizzes(2, 0,2),
-
-
-                // No auth operations tests
-                (r, a) -> testAllQuizzesNoAuth(),
-                (r, a) -> testCreateQuizNoAuth(1),
-                (r, a) -> testCreateQuizNoAuth(2),
-                (r, a) -> testSolveQuizNoAuth(quizIds[0], "[0]"),
-                (r, a) -> testSolveQuizNoAuth(quizIds[1], "[1]"),
-                (r, a) -> testDeleteQuizzesNoAuth(quizIds[0]),
-                (r, a) -> testDeleteQuizzesNoAuth(quizIds[1]),
-                (r, a) -> testCompletedQuizzesNoAuth(),
+            () -> testAllQuizzes(2, 0,2),
 
 
-                // Fake auth operations tests
-                (r, a) -> testAllQuizzesFakeAuth(),
-                (r, a) -> testCreateQuizFakeAuth(1),
-                (r, a) -> testCreateQuizFakeAuth(2),
-                (r, a) -> testSolveQuizFakeAuth(quizIds[0], "[0]"),
-                (r, a) -> testSolveQuizFakeAuth(quizIds[1], "[1]"),
-                (r, a) -> testDeleteQuizzesFakeAuth(quizIds[0]),
-                (r, a) -> testDeleteQuizzesFakeAuth(quizIds[1]),
-                (r, a) -> testCompletedQuizzesFakeAuth(),
+            // No auth operations tests
+            () -> testAllQuizzesNoAuth(),
+            () -> testCreateQuizNoAuth(1),
+            () -> testCreateQuizNoAuth(2),
+            () -> testSolveQuizNoAuth(quizIds[0], "[0]"),
+            () -> testSolveQuizNoAuth(quizIds[1], "[1]"),
+            () -> testDeleteQuizzesNoAuth(quizIds[0]),
+            () -> testDeleteQuizzesNoAuth(quizIds[1]),
+            () -> testCompletedQuizzesNoAuth(),
 
 
-                // Solve two quizzes
-                (r, a) -> checkQuizSuccess(quizIds[0], "[0]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[0], "[1]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[0], "[2]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[0], "[3]", false, 2),
-
-                (r, a) -> checkQuizSuccess(quizIds[1], "[0]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[1], "[1]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[1], "[2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[1], "[3]", false, 2),
-
-
-                // Check completed
-                (r, a) -> testCompletedQuizzes(1, 1, 0 ,0, quizIds[0]),
-                (r, a) -> testCompletedQuizzes(1, 2, 0, 0, quizIds[1]),
+            // Fake auth operations tests
+            () -> testAllQuizzesFakeAuth(),
+            () -> testCreateQuizFakeAuth(1),
+            () -> testCreateQuizFakeAuth(2),
+            () -> testSolveQuizFakeAuth(quizIds[0], "[0]"),
+            () -> testSolveQuizFakeAuth(quizIds[1], "[1]"),
+            () -> testDeleteQuizzesFakeAuth(quizIds[0]),
+            () -> testDeleteQuizzesFakeAuth(quizIds[1]),
+            () -> testCompletedQuizzesFakeAuth(),
 
 
-                // Test database save
-                (r, a) -> testAllQuizzes(2, 0, 1),
-                (r, a) -> testAllQuizzes(2, 0,2),
-                (r, a) -> reloadServer(),
-                (r, a) -> testAllQuizzes(2, 0,1),
-                (r, a) -> testAllQuizzes(2, 0,2),
-                (r, a) -> checkQuizSuccess(quizIds[0], "[2]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[0], "[3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[1], "[0]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[1], "[1]", true, 1),
+            // Solve two quizzes
+            () -> checkQuizSuccess(quizIds[0], "[0]", false, 1),
+            () -> checkQuizSuccess(quizIds[0], "[1]", false, 2),
+            () -> checkQuizSuccess(quizIds[0], "[2]", true, 1),
+            () -> checkQuizSuccess(quizIds[0], "[3]", false, 2),
+
+            () -> checkQuizSuccess(quizIds[1], "[0]", false, 1),
+            () -> checkQuizSuccess(quizIds[1], "[1]", true, 2),
+            () -> checkQuizSuccess(quizIds[1], "[2]", false, 1),
+            () -> checkQuizSuccess(quizIds[1], "[3]", false, 2),
 
 
-                // Check completed
-                (r, a) -> testCompletedQuizzes(2, 1, 0 ,1, quizIds[0]),
-                (r, a) -> testCompletedQuizzes(2, 1, 0 ,0, quizIds[1]),
-
-                (r, a) -> testCompletedQuizzes(2, 2, 0, 1, quizIds[1]),
-                (r, a) -> testCompletedQuizzes(2, 2, 0, 0, quizIds[0]),
+            // Check completed
+            () -> testCompletedQuizzes(1, 1, 0 ,0, quizIds[0]),
+            () -> testCompletedQuizzes(1, 2, 0, 0, quizIds[1]),
 
 
-                // Test wrongly created quizzes
-                (r, a) -> addIncorrectQuiz(error400noTitle, 1),
-                (r, a) -> addIncorrectQuiz(error400emptyTitle, 2),
-                (r, a) -> addIncorrectQuiz(error400noText, 1),
-                (r, a) -> addIncorrectQuiz(error400emptyText, 2),
-                (r, a) -> addIncorrectQuiz(error400noOptions, 1),
-                (r, a) -> addIncorrectQuiz(error400emptyOptions, 2),
-                (r, a) -> addIncorrectQuiz(error400oneOption, 1),
+            // Test database save
+            () -> testAllQuizzes(2, 0, 1),
+            () -> testAllQuizzes(2, 0,2),
+            () -> reloadServer(),
+            () -> testAllQuizzes(2, 0,1),
+            () -> testAllQuizzes(2, 0,2),
+            () -> checkQuizSuccess(quizIds[0], "[2]", true, 2),
+            () -> checkQuizSuccess(quizIds[0], "[3]", false, 1),
+            () -> checkQuizSuccess(quizIds[1], "[0]", false, 2),
+            () -> checkQuizSuccess(quizIds[1], "[1]", true, 1),
 
 
-                // Test multiple answers
-                (r, a) -> testCreateQuiz(2, 1),
-                (r, a) -> testQuizExists(2, 1),
-                (r, a) -> testQuizNotExists(2, 1, 125),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[1]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0,1]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[1,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[2,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0,1,2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0,1,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[1,2,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[2], "[0,1,2,3]", false, 1),
+            // Check completed
+            () -> testCompletedQuizzes(2, 1, 0 ,1, quizIds[0]),
+            () -> testCompletedQuizzes(2, 1, 0 ,0, quizIds[1]),
 
-                (r, a) -> testCreateQuiz(3, 1),
-                (r, a) -> testQuizExists(3, 1),
-                (r, a) -> testQuizNotExists(3, 1, 125),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0,1]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[2,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0,1,2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0,1,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,2,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[0,1,2,3]", false, 1),
-
-                (r, a) -> testCreateQuiz(4, 1),
-                (r, a) -> testQuizExists(4, 1),
-                (r, a) -> testQuizNotExists(4, 1, 125),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[1]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0,1]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[1,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[2,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0,1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0,1,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[1,2,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[0,1,2,3]", false, 2),
-
-                (r, a) -> testCreateQuiz(5, 1),
-                (r, a) -> testQuizExists(5, 1),
-                (r, a) -> testQuizNotExists(5, 1, 125),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[1]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0,1]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[1,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[2,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0,1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0,1,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[1,2,3]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0,1,2,3]", false, 1),
-
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testQuizExists(6, 1),
-                (r, a) -> testQuizNotExists(6, 1, 125),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[1]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[1,2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[1,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[2,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1,2]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[1,2,3]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1,2,3]", false, 2),
-
-                (r, a) -> testAllQuizzes(7, 0,2),
-                (r, a) -> reloadServer(),
-                (r, a) -> testAllQuizzes(7, 0,2),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[0]", false, 2),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1,2]", false, 1),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1,3]", true, 2),
+            () -> testCompletedQuizzes(2, 2, 0, 1, quizIds[1]),
+            () -> testCompletedQuizzes(2, 2, 0, 0, quizIds[0]),
 
 
-                // Check completed
-                (r, a) -> testCompletedQuizzes(5, 1, 0 ,4, quizIds[0]),
-                (r, a) -> testCompletedQuizzes(5, 1, 0 ,3, quizIds[1]),
-                (r, a) -> testCompletedQuizzes(5, 1, 0 ,2, quizIds[4]),
-                (r, a) -> testCompletedQuizzes(5, 1, 0 ,1, quizIds[5]),
-                (r, a) -> testCompletedQuizzes(5, 1, 0 ,0, quizIds[5]),
-
-                (r, a) -> testCompletedQuizzes(6, 2, 0, 5, quizIds[1]),
-                (r, a) -> testCompletedQuizzes(6, 2, 0, 4, quizIds[0]),
-                (r, a) -> testCompletedQuizzes(6, 2, 0, 3, quizIds[2]),
-                (r, a) -> testCompletedQuizzes(6, 2, 0, 2, quizIds[3]),
-                (r, a) -> testCompletedQuizzes(6, 2, 0, 1, quizIds[6]),
-                (r, a) -> testCompletedQuizzes(6, 2, 0, 0, quizIds[6]),
+            // Test wrongly created quizzes
+            () -> addIncorrectQuiz(error400noTitle, 1),
+            () -> addIncorrectQuiz(error400emptyTitle, 2),
+            () -> addIncorrectQuiz(error400noText, 1),
+            () -> addIncorrectQuiz(error400emptyText, 2),
+            () -> addIncorrectQuiz(error400noOptions, 1),
+            () -> addIncorrectQuiz(error400emptyOptions, 2),
+            () -> addIncorrectQuiz(error400oneOption, 1),
 
 
-                // Test pagination completed quizzes
-                (r, a) -> checkQuizSuccess(quizIds[4], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[4], "[]", true, 1),
-                (r, a) -> checkQuizSuccess(quizIds[6], "[0,1,3]", true, 1),
+            // Test multiple answers
+            () -> testCreateQuiz(2, 1),
+            () -> testQuizExists(2, 1),
+            () -> testQuizNotExists(2, 1, 125),
+            () -> checkQuizSuccess(quizIds[2], "[]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[0]", false, 2),
+            () -> checkQuizSuccess(quizIds[2], "[1]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[2]", false, 2),
+            () -> checkQuizSuccess(quizIds[2], "[3]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[0,1]", true, 2),
+            () -> checkQuizSuccess(quizIds[2], "[0,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[0,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[2], "[1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[1,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[2], "[2,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[0,1,2]", false, 2),
+            () -> checkQuizSuccess(quizIds[2], "[0,1,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[2], "[1,2,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[2], "[0,1,2,3]", false, 1),
 
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
-                (r, a) -> checkQuizSuccess(quizIds[5], "[]", true, 2),
+            () -> testCreateQuiz(3, 1),
+            () -> testQuizExists(3, 1),
+            () -> testQuizNotExists(3, 1, 125),
+            () -> checkQuizSuccess(quizIds[3], "[]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[0]", false, 2),
+            () -> checkQuizSuccess(quizIds[3], "[1]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[2]", false, 2),
+            () -> checkQuizSuccess(quizIds[3], "[3]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[0,1]", false, 2),
+            () -> checkQuizSuccess(quizIds[3], "[0,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[0,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[3], "[1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[3], "[2,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[0,1,2]", false, 2),
+            () -> checkQuizSuccess(quizIds[3], "[0,1,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[3], "[1,2,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[3], "[0,1,2,3]", false, 1),
 
-                (r, a) -> testCompletedQuizzes(10, 1, 0 ,0, quizIds[6]),
-                (r, a) -> testCompletedQuizzes(10, 1, 0 ,1, quizIds[4]),
-                (r, a) -> testCompletedQuizzes(10, 1, 0 ,2, quizIds[4]),
-                (r, a) -> testCompletedQuizzes(10, 1, 0 ,3, quizIds[4]),
-                (r, a) -> testCompletedQuizzes(10, 1, 0 ,4, quizIds[4]),
-                (r, a) -> testCompletedQuizzes(10, 1, 0 ,5, quizIds[4]),
-                (r, a) -> testCompletedQuizzes(1, 1, 1 ,0, quizIds[0]),
+            () -> testCreateQuiz(4, 1),
+            () -> testQuizExists(4, 1),
+            () -> testQuizNotExists(4, 1, 125),
+            () -> checkQuizSuccess(quizIds[4], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[4], "[0]", false, 2),
+            () -> checkQuizSuccess(quizIds[4], "[1]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[2]", false, 2),
+            () -> checkQuizSuccess(quizIds[4], "[3]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[0,1]", false, 2),
+            () -> checkQuizSuccess(quizIds[4], "[0,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[0,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[4], "[1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[1,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[4], "[2,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[0,1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[0,1,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[4], "[1,2,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[4], "[0,1,2,3]", false, 2),
 
-                (r, a) -> testCompletedQuizzes(10, 2, 0 ,0, quizIds[5]),
-                (r, a) -> testCompletedQuizzes(10, 2, 0 ,1, quizIds[3]),
-                (r, a) -> testCompletedQuizzes(10, 2, 0 ,2, quizIds[3]),
-                (r, a) -> testCompletedQuizzes(10, 2, 0 ,3, quizIds[3]),
-                (r, a) -> testCompletedQuizzes(10, 2, 0 ,4, quizIds[3]),
-                (r, a) -> testCompletedQuizzes(10, 2, 0 ,5, quizIds[3]),
-                (r, a) -> testCompletedQuizzes(2, 2, 1 ,1, quizIds[1]),
-                (r, a) -> testCompletedQuizzes(2, 2, 1 ,0, quizIds[0]),
+            () -> testCreateQuiz(5, 1),
+            () -> testQuizExists(5, 1),
+            () -> testQuizNotExists(5, 1, 125),
+            () -> checkQuizSuccess(quizIds[5], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[1]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[2]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[3]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0,1]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[1,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[2,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0,1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0,1,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[1,2,3]", false, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0,1,2,3]", false, 1),
+
+            () -> testCreateQuiz(6, 1),
+            () -> testQuizExists(6, 1),
+            () -> testQuizNotExists(6, 1, 125),
+            () -> checkQuizSuccess(quizIds[6], "[]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[1]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[2]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[3]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,1]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,2]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[1,2]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[1,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[2,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,2]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[6], "[1,2,3]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,2,3]", false, 2),
+
+            () -> testAllQuizzes(7, 0,2),
+            () -> reloadServer(),
+            () -> testAllQuizzes(7, 0,2),
+            () -> checkQuizSuccess(quizIds[5], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[5], "[0]", false, 2),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,2]", false, 1),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,3]", true, 2),
 
 
-                // Test delete
-                (r, a) -> testDelete(quizIds[0], 1, 204),
-                (r, a) -> testDelete(quizIds[0], 1, 404),
-                (r, a) -> testQuizNotExists(0, 1, 0),
-                (r, a) -> testQuizNotExists(0, 2, 0),
-                (r, a) -> testQuizExists(1, 1),
-                (r, a) -> testQuizExists(1, 2),
+            // Check completed
+            () -> testCompletedQuizzes(5, 1, 0 ,4, quizIds[0]),
+            () -> testCompletedQuizzes(5, 1, 0 ,3, quizIds[1]),
+            () -> testCompletedQuizzes(5, 1, 0 ,2, quizIds[4]),
+            () -> testCompletedQuizzes(5, 1, 0 ,1, quizIds[5]),
+            () -> testCompletedQuizzes(5, 1, 0 ,0, quizIds[5]),
 
-                (r, a) -> testDelete(quizIds[1], 1, 403),
-                (r, a) -> testDelete(quizIds[1], 1, 403),
-                (r, a) -> testDelete(quizIds[1], 2, 204),
-                (r, a) -> testDelete(quizIds[1], 2, 404),
-                (r, a) -> testDelete(quizIds[1], 1, 404),
-                (r, a) -> testQuizNotExists(0, 1, 0),
-                (r, a) -> testQuizNotExists(0, 2, 0),
-                (r, a) -> testQuizNotExists(1, 1, 0),
-                (r, a) -> testQuizNotExists(1, 2, 0),
-
-                (r, a) -> testAllQuizzes(5, 0,1),
-                (r, a) -> reloadServer(),
-                (r, a) -> testAllQuizzes(5, 0,2),
-                (r, a) -> testQuizNotExists(0, 1, 0),
-                (r, a) -> testQuizNotExists(0, 2, 0),
-                (r, a) -> testQuizNotExists(1, 1, 0),
-                (r, a) -> testQuizNotExists(1, 2, 0),
+            () -> testCompletedQuizzes(6, 2, 0, 5, quizIds[1]),
+            () -> testCompletedQuizzes(6, 2, 0, 4, quizIds[0]),
+            () -> testCompletedQuizzes(6, 2, 0, 3, quizIds[2]),
+            () -> testCompletedQuizzes(6, 2, 0, 2, quizIds[3]),
+            () -> testCompletedQuizzes(6, 2, 0, 1, quizIds[6]),
+            () -> testCompletedQuizzes(6, 2, 0, 0, quizIds[6]),
 
 
-                // Test pagination all quizzes
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testCreateQuiz(6, 2),
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testCreateQuiz(6, 2),
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testCreateQuiz(6, 2),
-                (r, a) -> testCreateQuiz(6, 1),
-                (r, a) -> testCreateQuiz(6, 2),
-                (r, a) -> testAllQuizzes(10, 0,1),
-                (r, a) -> testAllQuizzes(10, 0,2),
-                (r, a) -> testAllQuizzes(5, 1,1),
-                (r, a) -> testAllQuizzes(5, 1,2)
-            };
+            // Test pagination completed quizzes
+            () -> checkQuizSuccess(quizIds[4], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[4], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[4], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[4], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[4], "[]", true, 1),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,3]", true, 1),
 
-            List<TestCase> tests = new ArrayList<>();
-            for (BiFunction func : lambdasForTests) {
-                tests.add(new TestCase<>().setCheckFunc(wrap(func)));
-            }
-            return tests;
-        }
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true, 2),
+            () -> checkQuizSuccess(quizIds[5], "[]", true, 2),
 
-        @Override
-        public List<TestCase> generate() {
-            return generateStringTests();
-        }
+            () -> testCompletedQuizzes(10, 1, 0 ,0, quizIds[6]),
+            () -> testCompletedQuizzes(10, 1, 0 ,1, quizIds[4]),
+            () -> testCompletedQuizzes(10, 1, 0 ,2, quizIds[4]),
+            () -> testCompletedQuizzes(10, 1, 0 ,3, quizIds[4]),
+            () -> testCompletedQuizzes(10, 1, 0 ,4, quizIds[4]),
+            () -> testCompletedQuizzes(10, 1, 0 ,5, quizIds[4]),
+            () -> testCompletedQuizzes(1, 1, 1 ,0, quizIds[0]),
+
+            () -> testCompletedQuizzes(10, 2, 0 ,0, quizIds[5]),
+            () -> testCompletedQuizzes(10, 2, 0 ,1, quizIds[3]),
+            () -> testCompletedQuizzes(10, 2, 0 ,2, quizIds[3]),
+            () -> testCompletedQuizzes(10, 2, 0 ,3, quizIds[3]),
+            () -> testCompletedQuizzes(10, 2, 0 ,4, quizIds[3]),
+            () -> testCompletedQuizzes(10, 2, 0 ,5, quizIds[3]),
+            () -> testCompletedQuizzes(2, 2, 1 ,1, quizIds[1]),
+            () -> testCompletedQuizzes(2, 2, 1 ,0, quizIds[0]),
+
+
+            // Test delete
+            () -> testDelete(quizIds[0], 1, 204),
+            () -> testDelete(quizIds[0], 1, 404),
+            () -> testQuizNotExists(0, 1, 0),
+            () -> testQuizNotExists(0, 2, 0),
+            () -> testQuizExists(1, 1),
+            () -> testQuizExists(1, 2),
+
+            () -> testDelete(quizIds[1], 1, 403),
+            () -> testDelete(quizIds[1], 1, 403),
+            () -> testDelete(quizIds[1], 2, 204),
+            () -> testDelete(quizIds[1], 2, 404),
+            () -> testDelete(quizIds[1], 1, 404),
+            () -> testQuizNotExists(0, 1, 0),
+            () -> testQuizNotExists(0, 2, 0),
+            () -> testQuizNotExists(1, 1, 0),
+            () -> testQuizNotExists(1, 2, 0),
+
+            () -> testAllQuizzes(5, 0,1),
+            () -> reloadServer(),
+            () -> testAllQuizzes(5, 0,2),
+            () -> testQuizNotExists(0, 1, 0),
+            () -> testQuizNotExists(0, 2, 0),
+            () -> testQuizNotExists(1, 1, 0),
+            () -> testQuizNotExists(1, 2, 0),
+
+
+            // Test pagination all quizzes
+            () -> testCreateQuiz(6, 1),
+            () -> testCreateQuiz(6, 2),
+            () -> testCreateQuiz(6, 1),
+            () -> testCreateQuiz(6, 1),
+            () -> testCreateQuiz(6, 1),
+            () -> testCreateQuiz(6, 2),
+            () -> testCreateQuiz(6, 1),
+            () -> testCreateQuiz(6, 2),
+            () -> testCreateQuiz(6, 1),
+            () -> testCreateQuiz(6, 2),
+            () -> testAllQuizzes(10, 0,1),
+            () -> testAllQuizzes(10, 0,2),
+            () -> testAllQuizzes(5, 1,1),
+            () -> testAllQuizzes(5, 1,2),
+        };
 
         private CheckResult testRegister(String login, String password, int status) {
             JsonObject json = new JsonObject();
@@ -715,7 +595,7 @@ files:
             HttpResp resp = new HttpResp(req.send(), url, "POST");
 
             checkStatusCode(resp, status);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testCreateQuizNoAuth(int quizNum) {
@@ -723,7 +603,7 @@ files:
             HttpRequest req = post(url, quizzes[quizNum]);
             HttpResp resp = new HttpResp(req.send(), url, "POST");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testCreateQuizFakeAuth(int quizNum) {
@@ -731,7 +611,7 @@ files:
             HttpRequest req = post(url, quizzes[quizNum]);
             HttpResp resp = new HttpResp(auth(req, 3).send(), url, "POST");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testSolveQuizNoAuth(int quizNum, String answerSent) {
@@ -739,7 +619,7 @@ files:
             HttpRequest req = post(url, "{" + " \"answer\" : " + answerSent + "}");
             HttpResp resp = new HttpResp(req.send(), url, "POST");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testSolveQuizFakeAuth(int quizNum, String answerSent) {
@@ -747,21 +627,21 @@ files:
             HttpRequest req = post(url, "{" + " \"answer\" : " + answerSent + "}");
             HttpResp resp = new HttpResp(auth(req, 3).send(), url, "POST");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testAllQuizzesNoAuth() {
             String url = "/api/quizzes";
             HttpResp resp = new HttpResp(get(url).send(), url, "GET");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testAllQuizzesFakeAuth() {
             String url = "/api/quizzes";
             HttpResp resp = new HttpResp(auth(get(url), 3).send(), url, "GET");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testDeleteQuizzesNoAuth(int quizNum) {
@@ -769,7 +649,7 @@ files:
             HttpRequest req = delete(url);
             HttpResp resp = new HttpResp(req.send(), url, "DELETE");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testDeleteQuizzesFakeAuth(int quizNum) {
@@ -777,7 +657,7 @@ files:
             HttpRequest req = delete(url);
             HttpResp resp = new HttpResp(auth(req, 3).send(), url, "DELETE");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testCompletedQuizzesNoAuth() {
@@ -785,7 +665,7 @@ files:
             HttpRequest req = get(url).setGetParam("page", "0");
             HttpResp resp = new HttpResp(req.send(), url + "?page=0", "GET");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testCompletedQuizzesFakeAuth() {
@@ -793,7 +673,7 @@ files:
             HttpRequest req = get(url).setGetParam("page", "0");
             HttpResp resp = new HttpResp(auth(req, 3).send(), url + "?page=0", "GET");
             checkStatusCode(resp, 401);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testCreateQuiz(int quizNum, int user) {
@@ -812,7 +692,7 @@ files:
 
             quizIds[quizNum] = obj.get("id").getAsInt();
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testQuizExists(int quizNum, int user) {
@@ -846,7 +726,7 @@ files:
             checkIntValue(resp, obj.get("id"), quizId, "id");
 
             if (!rightQuiz.equals(obj)) {
-                return CheckResult.FALSE(
+                return CheckResult.wrong(
                     "The quiz sent to the program looked like this:\n" +
                     getPrettyJson(rightQuiz) + "\n\n" +
                     "But the received quiz looks like that:\n" +
@@ -854,7 +734,7 @@ files:
                 );
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testQuizNotExists(int quizNum, int user, int shift) {
@@ -867,7 +747,7 @@ files:
 
             checkStatusCode(resp, 404);
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testAllQuizzes(int count, int page, int user) {
@@ -909,7 +789,7 @@ files:
                 ++index;
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testCompletedQuizzes(int count, int user, int page, int indexForCheckingQuizId, int quizNum) {
@@ -949,7 +829,7 @@ files:
                 ++index;
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult checkQuizSuccess(int quizNum, String answerSent, boolean shouldResponse, int user) {
@@ -972,7 +852,7 @@ files:
 
             checkBooleanValue(resp, obj.get("success"), shouldResponse, "success");
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult addIncorrectQuiz(String quiz, int user) {
@@ -980,7 +860,7 @@ files:
             HttpRequest req = post(url, quiz);
             HttpResp resp = new HttpResp(auth(req, user).send(), url, "POST");
             checkStatusCode(resp, 400);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testDelete(int quizNum, int user, int status) {
@@ -988,19 +868,16 @@ files:
             HttpRequest req = delete(url);
             HttpResp resp = new HttpResp(auth(req, user).send(), url, "DELETE");
             checkStatusCode(resp, status);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult reloadServer() {
-            stopSpring();
             try {
-                Thread.sleep(1000);
-                Method mainMethod = getMainMethod(WebQuizEngine.class);
-                mainMethod.invoke(null, new Object[] { new String[0] });
+                reloadSpring();
             } catch (Exception ex) {
-                throw new RuntimeException(ex.getMessage());
+                throw new FatalError(ex.getMessage(), ex);
             }
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
     }
   learner_created: false
@@ -1012,7 +889,7 @@ files:
     import com.google.gson.Gson;
     import com.google.gson.GsonBuilder;
     import com.google.gson.JsonElement;
-    import com.google.gson.JsonObject;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
 
     import static java.lang.Math.abs;
 

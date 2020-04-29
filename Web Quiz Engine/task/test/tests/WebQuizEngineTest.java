@@ -4,32 +4,35 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import engine.WebQuizEngine;
-import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-import org.hyperskill.hstest.v6.stage.SpringTest;
-import org.hyperskill.hstest.v6.testcase.CheckResult;
-import org.hyperskill.hstest.v6.testcase.TestCase;
+import org.hyperskill.hstest.dynamic.input.DynamicTesting;
+import org.hyperskill.hstest.dynamic.input.DynamicTestingMethod;
+import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+import org.hyperskill.hstest.stage.SpringTest;
+import org.hyperskill.hstest.testcase.CheckResult;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
-import static tests.TestHelper.*;
-import static tests.ApiTester.*;
+import static tests.ApiTester.checkArrayLength;
+import static tests.ApiTester.checkBooleanValue;
+import static tests.ApiTester.checkIsArray;
+import static tests.ApiTester.checkIsBoolean;
+import static tests.ApiTester.checkIsObject;
+import static tests.ApiTester.checkIsString;
+import static tests.ApiTester.checkObjectKey;
+import static tests.TestHelper.checkStatusCode;
+import static tests.TestHelper.getJson;
 
 public class WebQuizEngineTest extends SpringTest {
-
     public WebQuizEngineTest() {
         super(WebQuizEngine.class, 8889);
     }
 
-    @Override
-    public List<TestCase> generate() {
-        return Arrays.asList(
-            new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizReceived())),
-            new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess("2", true))),
-            new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess("1", false)))
-        );
-    }
+    @DynamicTestingMethod
+    DynamicTesting[] dt = new DynamicTesting[] {
+        this::checkQuizReceived,
+        () -> checkQuizSuccess("2", true),
+        () -> checkQuizSuccess("1", false)
+    };
 
     private CheckResult checkQuizReceived() {
         String url = "/api/quiz";
@@ -57,13 +60,13 @@ public class WebQuizEngineTest extends SpringTest {
         checkIsString(resp, arr.get(2), "options[2]");
         checkIsString(resp, arr.get(3), "options[3]");
 
-        return CheckResult.TRUE;
+        return CheckResult.correct();
     }
 
     private CheckResult checkQuizSuccess(String answerSent, boolean shouldResponse) {
         String url = "/api/quiz";
 
-        HttpRequest req = TestHelper.post(url, Map.of("answer", answerSent));
+        HttpRequest req = post(url, Map.of("answer", answerSent));
         HttpResp resp = new HttpResp(req.send(), url, "POST");
 
         checkStatusCode(resp, 200);
@@ -80,6 +83,6 @@ public class WebQuizEngineTest extends SpringTest {
 
         checkBooleanValue(resp, obj.get("success"), shouldResponse, "success");
 
-        return CheckResult.TRUE;
+        return CheckResult.correct();
     }
 }

@@ -11,6 +11,8 @@
 
 <p>All the previously developed operations should not be changed. As before, when creating a new quiz, the service checks the following rules: the fields <code class="java">title</code> and <code class="java">text</code> exist and they are not empty, and the <code class="java">options</code> array has two or more items. If at least one of these conditions is not satisfied, the service returns the <code class="java">400 (Bad request)</code> status code. As before, server responses for getting quizzes should not include answers for the quizzes.</p>
 
+<p><div class="alert alert-warning">For the testing reasons, make <code class="java">POST /actuator/shutdown</code> endpoint accessible without authentication.</div></p>
+
 <p>The main change is the accessibility of these operations. Now, to perform any operations with quizzes (<strong>create</strong>, <strong>solve</strong>, <strong>get one</strong>, <strong>get all</strong>, <strong>delete</strong>), the user has to be registered and then authorized via <strong>HTTP Basic Auth</strong> by sending their email and password for each request. Otherwise, the service returns the <code class="java">401 (Unauthorized)</code> status code. Thus, the only operation that does not require authorization is the registration.</p>
 
 <p>Here are some articles about spring security:</p>
@@ -21,7 +23,7 @@
 	<li><a target="_blank" href="https://www.devglan.com/spring-security/spring-boot-security-rest-basic-authentication" rel="noopener noreferrer nofollow">spring boot and basic authentication</a>;</li>
 </ul>
 
-<p><div class="alert alert-warning">Do not store the actual password in the database! Instead, configure password encryption using <code class="java">BCrypt</code> or some other algorithm via Spring Security.</div>.</p>
+<p><div class="alert alert-warning">Do not store the actual password in the database! Instead, configure password encryption using <code class="java">BCrypt</code> or some other algorithm via Spring Security.</div></p>
 
 <h2>Register a user</h2>
 

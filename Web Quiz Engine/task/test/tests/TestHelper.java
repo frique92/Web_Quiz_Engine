@@ -1,23 +1,14 @@
 package tests;
 
-import com.google.gson.*;
+import com.google.gson.JsonElement;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
-import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-import org.hyperskill.hstest.v6.mocks.web.response.HttpResponse;
-import org.hyperskill.hstest.v6.testcase.CheckResult;
+import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+import org.hyperskill.hstest.mocks.web.response.HttpResponse;
 
-import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Map;
-import java.util.function.BiFunction;
-
-import static org.hyperskill.hstest.v6.mocks.web.request.HttpRequestExecutor.packUrlParams;
-
-class WrongAnswer extends RuntimeException {
-    public WrongAnswer(String msg) {
-        super(msg);
-    }
-}
 
 class HttpResp {
     private String url;
@@ -64,20 +55,6 @@ class HttpResp {
 }
 
 public class TestHelper {
-    // Function just to be able to throw WrongAnswer
-    // as the way to fail the test
-    static <T> BiFunction<String, T, CheckResult> wrap(
-        BiFunction<String, T, CheckResult> original) {
-
-        return (r, a) -> {
-            try {
-                return original.apply(r, a);
-            } catch (WrongAnswer ex) {
-                return CheckResult.FALSE(ex.getMessage());
-            }
-        };
-    }
-
     static void checkStatusCode(HttpResp resp, int status) {
         if (resp.getStatusCode() != status) {
             throw new WrongAnswer(
@@ -123,24 +100,14 @@ public class TestHelper {
         }
     }
 
-    static private String constructUrl(String address) {
-        if (!address.startsWith("/")) {
-            address = "/" + address;
-        }
-        return "http://localhost:8889" + address;
-    }
-
-    static public HttpRequest post(String address, Map<String, String> params) {
-        return new HttpRequest("POST")
-            .setUri(constructUrl(address))
-            .setContent(packUrlParams(params))
-            .setContentType(ContentType.APPLICATION_FORM_URLENCODED);
-    }
-
-    static public HttpRequest put(String address, Map<String, String> params) {
-        return new HttpRequest("PUT")
-            .setUri(constructUrl(address))
-            .setContent(packUrlParams(params))
-            .setContentType(ContentType.APPLICATION_FORM_URLENCODED);
+    static HttpRequest auth(HttpRequest req, String login, String pass) {
+        String headerKey = "Authorization";
+        String beforeEncoding = login + ":" + pass;
+        String afterEncoding = new String(
+            Base64.getEncoder().encode(beforeEncoding.getBytes())
+        );
+        String headerValue = "Basic " + afterEncoding;
+        req.addHeader(headerKey, headerValue);
+        return req;
     }
 }

@@ -9,21 +9,15 @@ files:
     import com.google.gson.*;
     import org.apache.http.HttpHeaders;
     import org.apache.http.entity.ContentType;
-    import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-    import org.hyperskill.hstest.v6.mocks.web.response.HttpResponse;
-    import org.hyperskill.hstest.v6.testcase.CheckResult;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+    import org.hyperskill.hstest.mocks.web.response.HttpResponse;
+    import org.hyperskill.hstest.testcase.CheckResult;
 
-    import java.nio.charset.StandardCharsets;
     import java.util.Map;
     import java.util.function.BiFunction;
 
-    import static org.hyperskill.hstest.v6.mocks.web.request.HttpRequestExecutor.packUrlParams;
-
-    class WrongAnswer extends RuntimeException {
-        public WrongAnswer(String msg) {
-            super(msg);
-        }
-    }
+    import static org.hyperskill.hstest.mocks.web.request.HttpRequestExecutor.packUrlParams;
 
     class HttpResp {
         private String url;
@@ -70,20 +64,6 @@ files:
     }
 
     public class TestHelper {
-        // Function just to be able to throw WrongAnswer
-        // as the way to fail the test
-        static <T> BiFunction<String, T, CheckResult> wrap(
-            BiFunction<String, T, CheckResult> original) {
-
-            return (r, a) -> {
-                try {
-                    return original.apply(r, a);
-                } catch (WrongAnswer ex) {
-                    return CheckResult.FALSE(ex.getMessage());
-                }
-            };
-        }
-
         static void checkStatusCode(HttpResp resp, int status) {
             if (resp.getStatusCode() != status) {
                 throw new WrongAnswer(
@@ -164,13 +144,12 @@ files:
     import com.google.gson.JsonElement;
     import com.google.gson.JsonObject;
     import engine.WebQuizEngine;
-    import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-    import org.hyperskill.hstest.v6.stage.SpringTest;
-    import org.hyperskill.hstest.v6.testcase.CheckResult;
-    import org.hyperskill.hstest.v6.testcase.TestCase;
+    import org.hyperskill.hstest.dynamic.input.DynamicTesting;
+    import org.hyperskill.hstest.dynamic.input.DynamicTestingMethod;
+    import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+    import org.hyperskill.hstest.stage.SpringTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
 
-    import java.util.Arrays;
-    import java.util.List;
     import java.util.Map;
 
     import static tests.TestHelper.*;
@@ -178,7 +157,6 @@ files:
 
 
     public class WebQuizEngineTest extends SpringTest {
-
         public WebQuizEngineTest() {
             super(WebQuizEngine.class, 8889);
         }
@@ -202,34 +180,32 @@ files:
             "  \"answer\": 1\n" +
             "}";
 
-        @Override
-        public List<TestCase> generate() {
-            return Arrays.asList(
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(0))),
+        @DynamicTestingMethod
+        DynamicTesting[] dt = new DynamicTesting[] {
+            () -> testAllQuizzes(0),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(1))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(1))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(1))),
+            () -> testCreateQuiz(1),
+            () -> testQuizExists(1),
+            () -> testQuizNotExists(1),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(1))),
+            () -> testAllQuizzes(1),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(2))),
+            () -> testCreateQuiz(2),
+            () -> testQuizExists(2),
+            () -> testQuizNotExists(2),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(2))),
+            () -> testAllQuizzes(2),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId1, "0", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId1, "1", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId1, "2", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId1, "3", false))),
+            () -> checkQuizSuccess(quizId1, "0", false),
+            () -> checkQuizSuccess(quizId1, "1", false),
+            () -> checkQuizSuccess(quizId1, "2", true),
+            () -> checkQuizSuccess(quizId1, "3", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId2, "0", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId2, "1", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId2, "2", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizId2, "3", false)))
-            );
-        }
+            () -> checkQuizSuccess(quizId2, "0", false),
+            () -> checkQuizSuccess(quizId2, "1", true),
+            () -> checkQuizSuccess(quizId2, "2", false),
+            () -> checkQuizSuccess(quizId2, "3", false),
+        };
 
         private CheckResult testCreateQuiz(int quizNum) {
             String url = "/api/quizzes";
@@ -251,7 +227,7 @@ files:
                 quizId2 = obj.get("id").getAsInt();
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testQuizExists(int quizNum) {
@@ -286,7 +262,7 @@ files:
             checkIntValue(resp, obj.get("id"), quizId, "id");
 
             if (!rightQuiz.equals(obj)) {
-                return CheckResult.FALSE(
+                return CheckResult.wrong(
                     "The quiz sent to the program looked like this:\n" +
                     getPrettyJson(rightQuiz) + "\n\n" +
                     "But the received quiz looks like that:\n" +
@@ -294,7 +270,7 @@ files:
                 );
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testQuizNotExists(int quizNum) {
@@ -308,7 +284,7 @@ files:
 
             checkStatusCode(resp, 404);
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testAllQuizzes(int count) {
@@ -328,7 +304,7 @@ files:
                 ++index;
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult checkQuizSuccess(int quizNum, String answerSent, boolean shouldResponse) {
@@ -351,7 +327,7 @@ files:
 
             checkBooleanValue(resp, obj.get("success"), shouldResponse, "success");
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
     }
   learner_created: false
@@ -364,6 +340,7 @@ files:
     import com.google.gson.GsonBuilder;
     import com.google.gson.JsonElement;
     import com.google.gson.JsonObject;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
 
     import static java.lang.Math.abs;
 

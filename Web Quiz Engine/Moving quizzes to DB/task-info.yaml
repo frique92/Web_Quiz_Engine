@@ -9,21 +9,15 @@ files:
     import com.google.gson.*;
     import org.apache.http.HttpHeaders;
     import org.apache.http.entity.ContentType;
-    import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-    import org.hyperskill.hstest.v6.mocks.web.response.HttpResponse;
-    import org.hyperskill.hstest.v6.testcase.CheckResult;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
+    import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+    import org.hyperskill.hstest.mocks.web.response.HttpResponse;
+    import org.hyperskill.hstest.testcase.CheckResult;
 
-    import java.util.Base64;
     import java.util.Map;
     import java.util.function.BiFunction;
 
-    import static org.hyperskill.hstest.v6.mocks.web.request.HttpRequestExecutor.packUrlParams;
-
-    class WrongAnswer extends RuntimeException {
-        public WrongAnswer(String msg) {
-            super(msg);
-        }
-    }
+    import static org.hyperskill.hstest.mocks.web.request.HttpRequestExecutor.packUrlParams;
 
     class HttpResp {
         private String url;
@@ -79,7 +73,7 @@ files:
                 try {
                     return original.apply(r, a);
                 } catch (WrongAnswer ex) {
-                    return CheckResult.FALSE(ex.getMessage());
+                    return CheckResult.wrong(ex.getMessage());
                 }
             };
         }
@@ -164,10 +158,13 @@ files:
     import com.google.gson.JsonElement;
     import com.google.gson.JsonObject;
     import engine.WebQuizEngine;
-    import org.hyperskill.hstest.v6.mocks.web.request.HttpRequest;
-    import org.hyperskill.hstest.v6.stage.SpringTest;
-    import org.hyperskill.hstest.v6.testcase.CheckResult;
-    import org.hyperskill.hstest.v6.testcase.TestCase;
+    import org.hyperskill.hstest.dynamic.input.DynamicTesting;
+    import org.hyperskill.hstest.dynamic.input.DynamicTestingMethod;
+    import org.hyperskill.hstest.exception.outcomes.FatalError;
+    import org.hyperskill.hstest.mocks.web.request.HttpRequest;
+    import org.hyperskill.hstest.stage.SpringTest;
+    import org.hyperskill.hstest.testcase.CheckResult;
+    import org.hyperskill.hstest.testcase.TestCase;
     import org.junit.AfterClass;
     import org.junit.BeforeClass;
 
@@ -181,51 +178,13 @@ files:
     import java.util.List;
     import java.util.Map;
 
-    import static org.hyperskill.hstest.v6.common.ReflectionUtils.getMainMethod;
+    import static org.hyperskill.hstest.common.ReflectionUtils.getMainMethod;
     import static tests.TestHelper.*;
     import static tests.ApiTester.*;
 
     public class WebQuizEngineTest extends SpringTest {
-
         public WebQuizEngineTest() {
-            super(WebQuizEngine.class, 8889);
-        }
-
-        @BeforeClass
-        public static void replaceDatabase() {
-            String dbFilePath = System.getProperty("user.dir")
-                + File.separator + "../quizdb.mv.db";
-
-            String dbTempFilePath = dbFilePath + "-real";
-
-            Path dbFile = Paths.get(dbFilePath);
-            Path dbTempFile = Paths.get(dbTempFilePath);
-
-            try {
-                if (dbFile.toFile().isFile() && !dbTempFile.toFile().exists()) {
-                    Files.move(dbFile, dbTempFile);
-                }
-            } catch (IOException ignored) { }
-        }
-
-        @AfterClass
-        public static void revertDatabase() throws Exception {
-            Thread.sleep(1000);
-
-            String dbFilePath = System.getProperty("user.dir")
-                + File.separator + "../quizdb.mv.db";
-
-            String dbTempFilePath = dbFilePath + "-real";
-
-            Path dbFile = Paths.get(dbFilePath);
-            Path dbTempFile = Paths.get(dbTempFilePath);
-
-            try {
-                Files.deleteIfExists(dbFile);
-                if (dbTempFile.toFile().isFile()) {
-                    Files.move(dbTempFile, dbFile);
-                }
-            } catch (IOException ignored) { }
+            super(WebQuizEngine.class, 8889, "../quizdb.mv.db");
         }
 
         private static String quiz1 =
@@ -344,153 +303,151 @@ files:
             "  \"answer\": [0]\n" +
             "}";
 
-        @Override
-        public List<TestCase> generate() {
-            return Arrays.asList(
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(0))),
+        @DynamicTestingMethod
+        DynamicTesting[] dt = new DynamicTesting[] {
+            () -> testAllQuizzes(0),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(0))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(0))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(0))),
+            () -> testCreateQuiz(0),
+            () -> testQuizExists(0),
+            () -> testQuizNotExists(0),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(1))),
+            () -> testAllQuizzes(1),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(1))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(1))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(1))),
+            () -> testCreateQuiz(1),
+            () -> testQuizExists(1),
+            () -> testQuizNotExists(1),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(2))),
+            () -> testAllQuizzes(2),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[0], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[0], "[1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[0], "[2]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[0], "[3]", false))),
+            () -> checkQuizSuccess(quizIds[0], "[0]", false),
+            () -> checkQuizSuccess(quizIds[0], "[1]", false),
+            () -> checkQuizSuccess(quizIds[0], "[2]", true),
+            () -> checkQuizSuccess(quizIds[0], "[3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[1], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[1], "[1]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[1], "[2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[1], "[3]", false))),
+            () -> checkQuizSuccess(quizIds[1], "[0]", false),
+            () -> checkQuizSuccess(quizIds[1], "[1]", true),
+            () -> checkQuizSuccess(quizIds[1], "[2]", false),
+            () -> checkQuizSuccess(quizIds[1], "[3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> reloadServer())),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[0], "[2]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[0], "[3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[1], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[1], "[1]", true))),
+            () -> testAllQuizzes(2),
+            this::reloadServer,
+            () -> testAllQuizzes(2),
+            () -> checkQuizSuccess(quizIds[0], "[2]", true),
+            () -> checkQuizSuccess(quizIds[0], "[3]", false),
+            () -> checkQuizSuccess(quizIds[1], "[0]", false),
+            () -> checkQuizSuccess(quizIds[1], "[1]", true),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400noTitle))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400emptyTitle))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400noText))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400emptyText))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400noOptions))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400emptyOptions))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> addIncorrectQuiz(error400oneOption))),
+            () -> addIncorrectQuiz(error400noTitle),
+            () -> addIncorrectQuiz(error400emptyTitle),
+            () -> addIncorrectQuiz(error400noText),
+            () -> addIncorrectQuiz(error400emptyText),
+            () -> addIncorrectQuiz(error400noOptions),
+            () -> addIncorrectQuiz(error400emptyOptions),
+            () -> addIncorrectQuiz(error400oneOption),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(2))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0,1]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0,1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0,1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[1,2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[2], "[0,1,2,3]", false))),
+            () -> testCreateQuiz(2),
+            () -> testQuizExists(2),
+            () -> testQuizNotExists(2),
+            () -> checkQuizSuccess(quizIds[2], "[]", false),
+            () -> checkQuizSuccess(quizIds[2], "[0]", false),
+            () -> checkQuizSuccess(quizIds[2], "[1]", false),
+            () -> checkQuizSuccess(quizIds[2], "[2]", false),
+            () -> checkQuizSuccess(quizIds[2], "[3]", false),
+            () -> checkQuizSuccess(quizIds[2], "[0,1]", true),
+            () -> checkQuizSuccess(quizIds[2], "[0,2]", false),
+            () -> checkQuizSuccess(quizIds[2], "[0,3]", false),
+            () -> checkQuizSuccess(quizIds[2], "[1,2]", false),
+            () -> checkQuizSuccess(quizIds[2], "[1,3]", false),
+            () -> checkQuizSuccess(quizIds[2], "[2,3]", false),
+            () -> checkQuizSuccess(quizIds[2], "[0,1,2]", false),
+            () -> checkQuizSuccess(quizIds[2], "[0,1,3]", false),
+            () -> checkQuizSuccess(quizIds[2], "[1,2,3]", false),
+            () -> checkQuizSuccess(quizIds[2], "[0,1,2,3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(3))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(3))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(3))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0,1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[1,3]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0,1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0,1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[1,2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[3], "[0,1,2,3]", false))),
+            () -> testCreateQuiz(3),
+            () -> testQuizExists(3),
+            () -> testQuizNotExists(3),
+            () -> checkQuizSuccess(quizIds[3], "[]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0]", false),
+            () -> checkQuizSuccess(quizIds[3], "[1]", false),
+            () -> checkQuizSuccess(quizIds[3], "[2]", false),
+            () -> checkQuizSuccess(quizIds[3], "[3]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0,1]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0,2]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0,3]", false),
+            () -> checkQuizSuccess(quizIds[3], "[1,2]", false),
+            () -> checkQuizSuccess(quizIds[3], "[1,3]", true),
+            () -> checkQuizSuccess(quizIds[3], "[2,3]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0,1,2]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0,1,3]", false),
+            () -> checkQuizSuccess(quizIds[3], "[1,2,3]", false),
+            () -> checkQuizSuccess(quizIds[3], "[0,1,2,3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(4))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(4))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(4))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0,1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0,1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0,1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[1,2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[4], "[0,1,2,3]", false))),
+            () -> testCreateQuiz(4),
+            () -> testQuizExists(4),
+            () -> testQuizNotExists(4),
+            () -> checkQuizSuccess(quizIds[4], "[]", true),
+            () -> checkQuizSuccess(quizIds[4], "[0]", false),
+            () -> checkQuizSuccess(quizIds[4], "[1]", false),
+            () -> checkQuizSuccess(quizIds[4], "[2]", false),
+            () -> checkQuizSuccess(quizIds[4], "[3]", false),
+            () -> checkQuizSuccess(quizIds[4], "[0,1]", false),
+            () -> checkQuizSuccess(quizIds[4], "[0,2]", false),
+            () -> checkQuizSuccess(quizIds[4], "[0,3]", false),
+            () -> checkQuizSuccess(quizIds[4], "[1,2]", false),
+            () -> checkQuizSuccess(quizIds[4], "[1,3]", false),
+            () -> checkQuizSuccess(quizIds[4], "[2,3]", false),
+            () -> checkQuizSuccess(quizIds[4], "[0,1,2]", false),
+            () -> checkQuizSuccess(quizIds[4], "[0,1,3]", false),
+            () -> checkQuizSuccess(quizIds[4], "[1,2,3]", false),
+            () -> checkQuizSuccess(quizIds[4], "[0,1,2,3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(5))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(5))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(5))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0,1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0,1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0,1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[1,2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0,1,2,3]", false))),
+            () -> testCreateQuiz(5),
+            () -> testQuizExists(5),
+            () -> testQuizNotExists(5),
+            () -> checkQuizSuccess(quizIds[5], "[]", true),
+            () -> checkQuizSuccess(quizIds[5], "[0]", false),
+            () -> checkQuizSuccess(quizIds[5], "[1]", false),
+            () -> checkQuizSuccess(quizIds[5], "[2]", false),
+            () -> checkQuizSuccess(quizIds[5], "[3]", false),
+            () -> checkQuizSuccess(quizIds[5], "[0,1]", false),
+            () -> checkQuizSuccess(quizIds[5], "[0,2]", false),
+            () -> checkQuizSuccess(quizIds[5], "[0,3]", false),
+            () -> checkQuizSuccess(quizIds[5], "[1,2]", false),
+            () -> checkQuizSuccess(quizIds[5], "[1,3]", false),
+            () -> checkQuizSuccess(quizIds[5], "[2,3]", false),
+            () -> checkQuizSuccess(quizIds[5], "[0,1,2]", false),
+            () -> checkQuizSuccess(quizIds[5], "[0,1,3]", false),
+            () -> checkQuizSuccess(quizIds[5], "[1,2,3]", false),
+            () -> checkQuizSuccess(quizIds[5], "[0,1,2,3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testCreateQuiz(6))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizExists(6))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testQuizNotExists(6))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,1]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[1,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,1,3]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[1,2,3]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,1,2,3]", false))),
+            () -> testCreateQuiz(6),
+            () -> testQuizExists(6),
+            () -> testQuizNotExists(6),
+            () -> checkQuizSuccess(quizIds[6], "[]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0]", false),
+            () -> checkQuizSuccess(quizIds[6], "[1]", false),
+            () -> checkQuizSuccess(quizIds[6], "[2]", false),
+            () -> checkQuizSuccess(quizIds[6], "[3]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,1]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,2]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,3]", false),
+            () -> checkQuizSuccess(quizIds[6], "[1,2]", false),
+            () -> checkQuizSuccess(quizIds[6], "[1,3]", false),
+            () -> checkQuizSuccess(quizIds[6], "[2,3]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,2]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,3]", true),
+            () -> checkQuizSuccess(quizIds[6], "[1,2,3]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,2,3]", false),
 
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(7))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> reloadServer())),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> testAllQuizzes(7))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[]", true))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[5], "[0]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,1,2]", false))),
-                new TestCase<>().setCheckFunc(wrap((r, a) -> checkQuizSuccess(quizIds[6], "[0,1,3]", true)))
-            );
-        }
+            () -> testAllQuizzes(7),
+            this::reloadServer,
+            () -> testAllQuizzes(7),
+            () -> checkQuizSuccess(quizIds[5], "[]", true),
+            () -> checkQuizSuccess(quizIds[5], "[0]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,2]", false),
+            () -> checkQuizSuccess(quizIds[6], "[0,1,3]", true),
+        };
 
         private CheckResult testCreateQuiz(int quizNum) {
             String url = "/api/quizzes";
@@ -508,7 +465,7 @@ files:
 
             quizIds[quizNum] = obj.get("id").getAsInt();
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testQuizExists(int quizNum) {
@@ -543,7 +500,7 @@ files:
             checkIntValue(resp, obj.get("id"), quizId, "id");
 
             if (!rightQuiz.equals(obj)) {
-                return CheckResult.FALSE(
+                return CheckResult.wrong(
                     "The quiz sent to the program looked like this:\n" +
                     getPrettyJson(rightQuiz) + "\n\n" +
                     "But the received quiz looks like that:\n" +
@@ -551,7 +508,7 @@ files:
                 );
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testQuizNotExists(int quizNum) {
@@ -565,7 +522,7 @@ files:
 
             checkStatusCode(resp, 404);
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult testAllQuizzes(int count) {
@@ -585,7 +542,7 @@ files:
                 ++index;
             }
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult checkQuizSuccess(int quizNum, String answerSent, boolean shouldResponse) {
@@ -608,7 +565,7 @@ files:
 
             checkBooleanValue(resp, obj.get("success"), shouldResponse, "success");
 
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult addIncorrectQuiz(String quiz) {
@@ -616,19 +573,16 @@ files:
             HttpRequest req = post(url, quiz);
             HttpResp resp = new HttpResp(req.send(), url, "POST");
             checkStatusCode(resp, 400);
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
 
         private CheckResult reloadServer() {
-            stopSpring();
             try {
-                Thread.sleep(1000);
-                Method mainMethod = getMainMethod(WebQuizEngine.class);
-                mainMethod.invoke(null, new Object[] { new String[0] });
+                reloadSpring();
             } catch (Exception ex) {
-                throw new RuntimeException(ex.getMessage());
+                throw new FatalError(ex.getMessage());
             }
-            return CheckResult.TRUE;
+            return CheckResult.correct();
         }
     }
   learner_created: false
@@ -641,6 +595,7 @@ files:
     import com.google.gson.GsonBuilder;
     import com.google.gson.JsonElement;
     import com.google.gson.JsonObject;
+    import org.hyperskill.hstest.exception.outcomes.WrongAnswer;
 
     import static java.lang.Math.abs;
 
