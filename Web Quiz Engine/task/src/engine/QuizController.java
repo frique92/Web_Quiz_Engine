@@ -23,4 +23,9 @@ public class QuizController {
     public Quiz getQuiz(@PathVariable int id) {
         return quizzes.get(id - 1);
     }
+
+    @GetMapping(path = "api/quizzes")
+    public List<Quiz> getQuizzes() {
+        return quizzes;
+    }
 }
