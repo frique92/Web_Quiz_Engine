@@ -13,4 +13,11 @@ public class AnswerQuiz {
         this.feedback = feedback;
     }
 
+    public boolean isSuccess() {
+        return success;
+    }
+
+    public String getFeedback() {
+        return feedback;
+    }
 }

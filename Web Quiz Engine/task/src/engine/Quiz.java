@@ -1,14 +1,15 @@
 package engine;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-@JsonIgnoreProperties(value = {"answer"})
 public class Quiz {
 
     private int id;
     private String title;
     private String text;
     private String[] options;
+    @JsonIgnore
     private int answer;
 
     public int getId() {
@@ -43,11 +44,17 @@ public class Quiz {
         this.options = options;
     }
 
+    @JsonIgnore
     public int getAnswer() {
         return answer;
     }
 
+    @JsonProperty
     public void setAnswer(int answer) {
         this.answer = answer;
+    }
+
+    public boolean isCorrectAnswer(int answer) {
+        return this.answer == answer;
     }
 }
