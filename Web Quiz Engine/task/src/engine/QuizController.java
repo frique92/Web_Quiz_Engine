@@ -18,4 +18,9 @@ public class QuizController {
         quizzes.add(quiz);
         return quiz;
     }
+
+    @GetMapping(path = "api/quizzes/{id}")
+    public Quiz getQuiz(@PathVariable int id) {
+        return quizzes.get(id - 1);
+    }
 }
