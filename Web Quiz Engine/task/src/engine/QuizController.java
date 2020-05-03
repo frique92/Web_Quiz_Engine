@@ -42,11 +42,7 @@ public class QuizController {
     @PostMapping(path = "api/quizzes/{id}/solve")
     public AnswerQuiz solveQuiz(@PathVariable int id, @RequestParam(name = "answer") int answer) {
         checkArrayBounds(id);
-
         Quiz quiz = quizzes.get(id - 1);
-
-        System.out.println(quiz.getAnswer());
-        System.out.println(answer);
 
         if (quiz.isCorrectAnswer(answer)) return AnswerQuiz.CORRECT_ANSWER;
         else return AnswerQuiz.WRONG_ANSWER;
