@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
 
@@ -11,17 +12,18 @@ public class Quiz {
 
     private int id;
 
-    @NotEmpty(message = "Title is mandatory!")
+    @NotNull(message = "Title is mandatory!")
     private String title;
 
-    @NotEmpty(message = "Text is mandatory!")
+    @NotNull(message = "Text is mandatory!")
     private String text;
 
+    @NotNull(message = "Option is mandatory!")
     @Size(min = 2)
     private String[] options;
 
     @JsonIgnore
-    private int answer;
+    private int[] answer;
 
     public int getId() {
         return id;
@@ -56,16 +58,16 @@ public class Quiz {
     }
 
     @JsonIgnore
-    public int getAnswer() {
+    public int[] getAnswer() {
         return answer;
     }
 
     @JsonProperty
-    public void setAnswer(int answer) {
+    public void setAnswer(int[] answer) {
         this.answer = answer;
     }
 
-    public boolean isCorrectAnswer(int answer) {
-        return this.answer == answer;
+    public boolean isCorrectAnswer(int[] answer) {
+        return Arrays.equals(this.answer, answer);
     }
 }

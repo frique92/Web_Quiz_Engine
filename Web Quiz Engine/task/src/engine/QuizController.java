@@ -9,7 +9,7 @@ import java.util.*;
 @RestController
 public class QuizController {
 
-    List<Quiz> quizzes = new ArrayList<>();
+    private final List<Quiz> quizzes = new ArrayList<>();
 
     private int getNextId() {
         return quizzes.size() + 1;
@@ -40,11 +40,11 @@ public class QuizController {
     }
 
     @PostMapping(path = "api/quizzes/{id}/solve")
-    public AnswerQuiz solveQuiz(@PathVariable int id, @RequestParam(name = "answer") int answer) {
+    public AnswerQuiz solveQuiz(@PathVariable int id, @RequestBody Guess guess) {
         checkArrayBounds(id);
         Quiz quiz = quizzes.get(id - 1);
 
-        if (quiz.isCorrectAnswer(answer)) return AnswerQuiz.CORRECT_ANSWER;
+        if (quiz.isCorrectAnswer(guess.getAnswer())) return AnswerQuiz.CORRECT_ANSWER;
         else return AnswerQuiz.WRONG_ANSWER;
     }
 }
