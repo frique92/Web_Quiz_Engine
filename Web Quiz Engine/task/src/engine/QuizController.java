@@ -14,6 +14,9 @@ public class QuizController {
     @Autowired
     private QuizRepository quizRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping(path = "api/quizzes", consumes = "application/json")
     public Quiz addQuiz(@Valid @RequestBody Quiz quiz) {
         return quizRepository.save(quiz);
@@ -40,5 +43,10 @@ public class QuizController {
         Quiz quiz = quizzes.get();
         if (quiz.isCorrectAnswer(guess.getAnswer())) return AnswerQuiz.CORRECT_ANSWER;
         else return AnswerQuiz.WRONG_ANSWER;
+    }
+
+    @PostMapping(path = "api/register", consumes = "application/json")
+    public User addUser(@RequestBody User user){
+        return userRepository.save(user);
     }
 }

@@ -1104,6 +1104,18 @@ files:
 - name: src/engine/Guess.java
   visible: true
   learner_created: true
+- name: src/engine/BasicConfiguration.java
+  visible: true
+  learner_created: true
+- name: src/engine/User.java
+  visible: true
+  learner_created: true
+- name: src/engine/UserRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/PasswordEncoder.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/projects/91/stages/508/implement
 status: Unchecked
 record: -1
