@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.validation.Valid;
 import java.util.*;
 
 @RestController
@@ -14,7 +15,7 @@ public class QuizController {
     private QuizRepository quizRepository;
 
     @PostMapping(path = "api/quizzes", consumes = "application/json")
-    public Quiz addQuiz(@RequestBody Quiz quiz) {
+    public Quiz addQuiz(@Valid @RequestBody Quiz quiz) {
         return quizRepository.save(quiz);
     }
 

@@ -74,7 +74,8 @@ public class Quiz {
 
     @JsonProperty
     public void setAnswer(int[] answer) {
-        this.answer = answer;
+        if (answer == null) this.answer = new int[]{};
+        else this.answer = answer;
     }
 
     public boolean isCorrectAnswer(int[] answer) {
