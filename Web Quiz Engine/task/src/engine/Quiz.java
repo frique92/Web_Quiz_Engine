@@ -2,12 +2,16 @@ package engine;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.hibernate.annotations.Type;
 
+import javax.persistence.*;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
 
+@Entity
+@Table(name = "quizzes")
 public class Quiz {
 
     private int id;
@@ -25,6 +29,8 @@ public class Quiz {
     @JsonIgnore
     private int[] answer;
 
+    @Id
+    @GeneratedValue()
     public int getId() {
         return id;
     }
@@ -33,6 +39,7 @@ public class Quiz {
         this.id = id;
     }
 
+    @Column
     public String getTitle() {
         return title;
     }
@@ -41,6 +48,7 @@ public class Quiz {
         this.title = title;
     }
 
+    @Column
     public String getText() {
         return text;
     }
@@ -49,6 +57,7 @@ public class Quiz {
         this.text = text;
     }
 
+    @Column
     public String[] getOptions() {
         return options;
     }
@@ -58,6 +67,7 @@ public class Quiz {
     }
 
     @JsonIgnore
+    @Column
     public int[] getAnswer() {
         return answer;
     }
