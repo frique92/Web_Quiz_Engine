@@ -1,11 +1,8 @@
-package engine;
+package engine.models;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.hibernate.annotations.Type;
 
 import javax.persistence.*;
-import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
@@ -14,23 +11,37 @@ import java.util.*;
 @Table(name = "quizzes")
 public class Quiz {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private int id;
 
+    @Column
     @NotNull(message = "Title is mandatory!")
     private String title;
 
+    @Column
     @NotNull(message = "Text is mandatory!")
     private String text;
 
-    @NotNull(message = "Option is mandatory!")
+    @Column
+    @NotNull()
     @Size(min = 2)
     private String[] options;
 
-    @JsonIgnore
+    @Column
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private int[] answer;
 
-    @Id
-    @GeneratedValue()
+    private User author;
+
+    public User getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(User author) {
+        this.author = author;
+    }
+
     public int getId() {
         return id;
     }
@@ -39,7 +50,6 @@ public class Quiz {
         this.id = id;
     }
 
-    @Column
     public String getTitle() {
         return title;
     }
@@ -48,7 +58,6 @@ public class Quiz {
         this.title = title;
     }
 
-    @Column
     public String getText() {
         return text;
     }
@@ -57,7 +66,6 @@ public class Quiz {
         this.text = text;
     }
 
-    @Column
     public String[] getOptions() {
         return options;
     }
@@ -66,16 +74,12 @@ public class Quiz {
         this.options = options;
     }
 
-    @JsonIgnore
-    @Column
     public int[] getAnswer() {
         return answer;
     }
 
-    @JsonProperty
     public void setAnswer(int[] answer) {
-        if (answer == null) this.answer = new int[]{};
-        else this.answer = answer;
+        this.answer = answer;
     }
 
     public boolean isCorrectAnswer(int[] answer) {

@@ -894,42 +894,12 @@ files:
 
     }
   learner_created: false
-- name: src/engine/AnswerQuiz.java
-  visible: true
-  text: |
-    package engine;
-
-    public class AnswerQuiz {
-
-        public static AnswerQuiz CORRECT_ANSWER = new AnswerQuiz(true, "Congratulations, you're right!");
-        public static AnswerQuiz WRONG_ANSWER = new AnswerQuiz(false, "Wrong answer! Please, try again.");
-
-        private final boolean success;
-        private final String feedback;
-
-        public AnswerQuiz(boolean success, String feedback) {
-            this.success = success;
-            this.feedback = feedback;
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public String getFeedback() {
-            return feedback;
-        }
-    }
-  learner_created: true
 - name: src/resources/application.properties
   visible: true
   text: |
     server.port=8889
     management.endpoints.web.exposure.include=*
     management.endpoint.shutdown.enabled=true
-  learner_created: true
-- name: src/engine/QuizRepository.java
-  visible: true
   learner_created: true
 - name: src/engine/WebQuizEngine.java
   visible: true
@@ -972,7 +942,37 @@ files:
         compile("org.springframework.boot:spring-boot-starter-web")
     }
   learner_created: true
-- name: src/engine/Quiz.java
+- name: src/engine/models/AnswerQuiz.java
+  visible: true
+  text: |
+    package engine;
+
+    public class AnswerQuiz {
+
+        public static AnswerQuiz CORRECT_ANSWER = new AnswerQuiz(true, "Congratulations, you're right!");
+        public static AnswerQuiz WRONG_ANSWER = new AnswerQuiz(false, "Wrong answer! Please, try again.");
+
+        private final boolean success;
+        private final String feedback;
+
+        public AnswerQuiz(boolean success, String feedback) {
+            this.success = success;
+            this.feedback = feedback;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getFeedback() {
+            return feedback;
+        }
+    }
+  learner_created: true
+- name: src/engine/models/Guess.java
+  visible: true
+  learner_created: true
+- name: src/engine/models/Quiz.java
   visible: true
   text: |
     package engine;
@@ -1047,7 +1047,7 @@ files:
         }
     }
   learner_created: true
-- name: src/engine/QuizController.java
+- name: src/engine/controllers/QuizController.java
   visible: true
   text: |-
     package engine;
@@ -1101,21 +1101,24 @@ files:
         }
     }
   learner_created: true
-- name: src/engine/Guess.java
+- name: src/engine/repositories/QuizRepository.java
   visible: true
   learner_created: true
-- name: src/engine/BasicConfiguration.java
+- name: src/engine/models/User.java
   visible: true
   learner_created: true
-- name: src/engine/User.java
+- name: src/engine/repositories/UserRepository.java
   visible: true
   learner_created: true
-- name: src/engine/UserRepository.java
+- name: src/engine/services/UserService.java
   visible: true
   learner_created: true
-- name: src/engine/PasswordEncoder.java
+- name: src/engine/controllers/UserController.java
+  visible: true
+  learner_created: true
+- name: src/engine/SecurityConfiguration.java
   visible: true
   learner_created: true
 feedback_link: https://hyperskill.org/projects/91/stages/508/implement
-status: Unchecked
+status: Failed
 record: -1

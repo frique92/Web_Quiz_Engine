@@ -1,4 +1,4 @@
-package engine;
+package engine.models;
 
 public class Guess {
     private int[] answer;
