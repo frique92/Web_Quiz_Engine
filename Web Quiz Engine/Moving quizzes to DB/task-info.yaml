@@ -807,22 +807,10 @@ files:
         compile("org.springframework.boot:spring-boot-starter-web")
     }
   learner_created: true
-- name: src/engine/models/AnswerQuiz.java
-  visible: true
-  learner_created: true
 - name: src/engine/controllers/UserController.java
   visible: true
   learner_created: true
-- name: src/engine/controllers/QuizController.java
-  visible: true
-  learner_created: true
 - name: src/engine/services/UserService.java
-  visible: true
-  learner_created: true
-- name: src/engine/repositories/QuizRepository.java
-  visible: true
-  learner_created: true
-- name: src/engine/models/Quiz.java
   visible: true
   learner_created: true
 - name: src/engine/repositories/UserRepository.java
@@ -831,12 +819,24 @@ files:
 - name: src/engine/SecurityConfiguration.java
   visible: true
   learner_created: true
-- name: src/engine/models/Guess.java
-  visible: true
-  learner_created: true
 - name: src/engine/models/User.java
   visible: true
   learner_created: true
+- name: src/engine/models/AnswerQuiz.java
+  visible: true
+  learner_created: true
+- name: src/engine/repositories/QuizRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/models/Quiz.java
+  visible: true
+  learner_created: true
+- name: src/engine/controllers/QuizController.java
+  visible: true
+  learner_created: true
+- name: src/engine/models/Guess.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/projects/91/stages/507/implement
-status: Failed
+status: Solved
 record: 4

@@ -1053,6 +1053,533 @@ files:
 
     }
   learner_created: false
+- name: src/engine/SecurityConfiguration.java
+  visible: true
+  text: |
+    package engine;
+
+    import engine.services.UserService;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.context.annotation.Bean;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+    import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+    import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+    import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+    import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+
+    @Configuration
+    @EnableWebSecurity
+    public class SecurityConfiguration extends WebSecurityConfigurerAdapter {
+
+        private final UserService userService;
+
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+            return new BCryptPasswordEncoder();
+        }
+
+        public SecurityConfiguration(UserService userService) {
+            this.userService = userService;
+        }
+
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+            auth.userDetailsService(userService)
+                    .passwordEncoder(passwordEncoder());
+        }
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            http.authorizeRequests()
+                    .antMatchers("/api/register").permitAll()
+                    .antMatchers("/actuator/*").permitAll()
+                    .anyRequest().authenticated()
+                    .and()
+                    .csrf().disable()
+                    .httpBasic();
+        }
+    }
+  learner_created: true
+- name: src/resources/application.properties
+  visible: true
+  text: |
+    server.port=8889
+    management.endpoints.web.exposure.include=*
+    management.endpoint.shutdown.enabled=true
+    spring.datasource.url=jdbc:h2:file:../quizdb
+    spring.datasource.driverClassName=org.h2.Driver
+    spring.datasource.username=sa
+    spring.datasource.password=password
+
+    spring.jpa.database-platform=org.hibernate.dialect.H2Dialect
+    spring.jpa.hibernate.ddl-auto=update
+
+    spring.h2.console.enabled=true
+    spring.h2.console.settings.trace=false
+    spring.h2.console.settings.web-allow-others=false
+    spring.jpa.show-sql=true
+  learner_created: true
+- name: src/engine/controllers/UserController.java
+  visible: true
+  text: |-
+    package engine.controllers;
+
+    import engine.models.User;
+    import engine.repositories.UserRepository;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+    import org.springframework.web.bind.annotation.PostMapping;
+    import org.springframework.web.bind.annotation.RequestBody;
+    import org.springframework.web.bind.annotation.RequestMapping;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import javax.validation.Valid;
+
+    @RestController
+    @RequestMapping("/api/register")
+    class UserController {
+
+        private UserRepository users;
+        private PasswordEncoder passwordEncoder;
+
+        public UserController(UserRepository users, PasswordEncoder passwordEncoder) {
+            this.users = users;
+            this.passwordEncoder = passwordEncoder;
+        }
+
+        @PostMapping
+        public ResponseEntity<User> registerUser(@Valid @RequestBody User user) {
+            if (users.findByEmail(user.getEmail()).isPresent()) {
+                return ResponseEntity.badRequest().build();
+            }
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+            return ResponseEntity.ok(users.save(user));
+        }
+    }
+  learner_created: true
+- name: src/engine/models/User.java
+  visible: true
+  text: |
+    package engine.models;
+
+    import com.fasterxml.jackson.annotation.JsonProperty;
+    import org.springframework.security.core.GrantedAuthority;
+    import org.springframework.security.core.authority.SimpleGrantedAuthority;
+    import org.springframework.security.core.userdetails.UserDetails;
+
+    import javax.persistence.Column;
+    import javax.persistence.Entity;
+    import javax.persistence.GeneratedValue;
+    import javax.persistence.Id;
+    import javax.validation.constraints.Email;
+    import javax.validation.constraints.Size;
+    import java.util.Arrays;
+    import java.util.Collection;
+    import java.util.Objects;
+
+    @Entity
+    public class User implements UserDetails {
+
+        @Id
+        @Column
+        @GeneratedValue
+        private Integer id;
+        @Email(regexp = ".*\\..*")
+        @Column
+        private String email;
+        @Size(min=5)
+        @Column
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        private String password;
+
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            return Arrays.asList(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+
+        @Override
+        public String getPassword() {
+            return password;
+        }
+
+        @Override
+        public String getUsername() {
+            return email;
+        }
+
+        @Override
+        public boolean isAccountNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isAccountNonLocked() {
+            return true;
+        }
+
+        @Override
+        public boolean isCredentialsNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return true;
+        }
+
+        public Integer getId() {
+            return id;
+        }
+
+        public void setId(Integer id) {
+            this.id = id;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            User user = (User) o;
+            return Objects.equals(getEmail(), user.getEmail()) &&
+                    Objects.equals(getPassword(), user.getPassword());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getEmail(), getPassword());
+        }
+    }
+  learner_created: true
+- name: src/engine/repositories/UserRepository.java
+  visible: true
+  text: |-
+    package engine.repositories;
+
+    import engine.models.User;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    import java.util.Optional;
+
+    @Repository
+    public interface UserRepository extends CrudRepository<User, Integer> {
+        Optional<User> findByEmail(String email);
+    }
+  learner_created: true
+- name: src/engine/models/Quiz.java
+  visible: true
+  text: |
+    package engine.models;
+
+    import com.fasterxml.jackson.annotation.JsonIgnore;
+    import com.fasterxml.jackson.annotation.JsonProperty;
+
+    import javax.persistence.*;
+    import javax.validation.constraints.NotNull;
+    import javax.validation.constraints.Size;
+    import java.util.*;
+
+    @Entity
+    @Table(name = "quizzes")
+    public class Quiz {
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.AUTO)
+        private int id;
+
+        @Column
+        @NotNull(message = "Title is mandatory!")
+        private String title;
+
+        @Column
+        @NotNull(message = "Text is mandatory!")
+        private String text;
+
+        @Column
+        @NotNull()
+        @Size(min = 2)
+        private String[] options;
+
+        @Column
+        @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+        private int[] answer;
+
+        @JsonIgnore
+        @ManyToOne(cascade = CascadeType.DETACH)
+        private User author;
+
+        public User getAuthor() {
+            return author;
+        }
+
+        public void setAuthor(User author) {
+            this.author = author;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
+
+        public String[] getOptions() {
+            return options;
+        }
+
+        public void setOptions(String[] options) {
+            this.options = options;
+        }
+
+        public int[] getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(int[] answer) {
+            this.answer = answer;
+        }
+
+        public boolean isCorrectAnswer(int[] answer) {
+            int[] currentAnswer = this.answer == null ? new int[0] : this.answer;
+            return Arrays.equals(currentAnswer, answer);
+        }
+    }
+  learner_created: true
+- name: src/engine/models/AnswerQuiz.java
+  visible: true
+  text: |
+    package engine.models;
+
+    public class AnswerQuiz {
+
+        public static AnswerQuiz CORRECT_ANSWER = new AnswerQuiz(true, "Congratulations, you're right!");
+        public static AnswerQuiz WRONG_ANSWER = new AnswerQuiz(false, "Wrong answer! Please, try again.");
+
+        private final boolean success;
+        private final String feedback;
+
+        public AnswerQuiz(boolean success, String feedback) {
+            this.success = success;
+            this.feedback = feedback;
+        }
+
+        public boolean isSuccess() {
+            return success;
+        }
+
+        public String getFeedback() {
+            return feedback;
+        }
+    }
+  learner_created: true
+- name: src/engine/services/UserService.java
+  visible: true
+  text: |-
+    package engine.services;
+
+    import engine.repositories.UserRepository;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.security.core.userdetails.UserDetails;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.core.userdetails.UsernameNotFoundException;
+    import org.springframework.stereotype.Service;
+
+    @Service
+    public class UserService implements UserDetailsService {
+
+        private final UserRepository users;
+
+        public UserService(UserRepository users) {
+            this.users = users;
+        }
+
+        @Override
+        public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+            var user = users.findByEmail(username);
+            if (user.isPresent()) return user.get();
+
+            throw new UsernameNotFoundException("User '" + username + "' not found!");
+        }
+    }
+  learner_created: true
+- name: src/engine/WebQuizEngine.java
+  visible: true
+  text: |
+    package engine;
+
+    import org.springframework.boot.SpringApplication;
+    import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+    @SpringBootApplication
+    public class WebQuizEngine {
+
+        public static void main(String[] args) {
+            SpringApplication.run(WebQuizEngine.class, args);
+        }
+
+    }
+  learner_created: true
+- name: build.gradle
+  visible: true
+  text: |
+    plugins {
+        id 'org.springframework.boot' version '2.2.2.RELEASE'
+        id 'java'
+    }
+
+    apply plugin: 'io.spring.dependency-management'
+
+    sourceCompatibility = '11'
+
+    repositories {
+        mavenCentral()
+    }
+
+    sourceSets.main.resources.srcDirs = ["src/resources"]
+
+    dependencies {
+        implementation 'org.springframework.boot:spring-boot-starter'
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        compile("org.springframework.boot:spring-boot-starter-web")
+        runtimeOnly 'com.h2database:h2'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.springframework.boot:spring-boot-starter-security'
+    }
+  learner_created: true
+- name: src/engine/models/Guess.java
+  visible: true
+  text: |-
+    package engine.models;
+
+    public class Guess {
+        private int[] answer;
+
+        public int[] getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(int[] answer) {
+            this.answer = answer;
+        }
+    }
+  learner_created: true
+- name: src/engine/repositories/QuizRepository.java
+  visible: true
+  text: |-
+    package engine.repositories;
+
+    import engine.models.Quiz;
+    import org.springframework.data.jpa.repository.JpaRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface QuizRepository extends JpaRepository<Quiz, Integer> {
+
+    }
+  learner_created: true
+- name: src/engine/controllers/QuizController.java
+  visible: true
+  text: |-
+    package engine.controllers;
+
+    import engine.models.User;
+    import engine.repositories.QuizRepository;
+    import engine.models.AnswerQuiz;
+    import engine.models.Guess;
+    import engine.models.Quiz;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.security.core.annotation.AuthenticationPrincipal;
+    import org.springframework.web.bind.annotation.*;
+    import org.springframework.web.server.ResponseStatusException;
+
+    import javax.validation.Valid;
+    import java.util.*;
+
+    @RestController
+    @RequestMapping("/api/quizzes")
+    public class QuizController {
+
+        @Autowired
+        private QuizRepository quizRepository;
+
+        @PostMapping(consumes = "application/json")
+        public Quiz addQuiz(@Valid @RequestBody Quiz quiz, @AuthenticationPrincipal User user) {
+            quiz.setAuthor(user);
+            return quizRepository.save(quiz);
+        }
+
+        @GetMapping(path = "{id}")
+        public Quiz getQuiz(@PathVariable int id) {
+            Optional<Quiz> quizzes = quizRepository.findById(id);
+            if (quizzes.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+
+            return quizzes.get();
+        }
+
+        @GetMapping
+        public List<Quiz> getQuizzes() {
+            return quizRepository.findAll();
+        }
+
+        @PostMapping(path = "{id}/solve")
+        public AnswerQuiz solveQuiz(@PathVariable int id, @RequestBody Guess guess) {
+            Optional<Quiz> quizzes = quizRepository.findById(id);
+            if (quizzes.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+
+            Quiz quiz = quizzes.get();
+            if (quiz.isCorrectAnswer(guess.getAnswer())) return AnswerQuiz.CORRECT_ANSWER;
+            else return AnswerQuiz.WRONG_ANSWER;
+        }
+
+        @DeleteMapping("{id}")
+        public ResponseEntity delete(@PathVariable int id, @AuthenticationPrincipal User user) {
+            Optional<Quiz> quiz = quizRepository.findById(id);
+            if (quiz.isPresent()) {
+                if (quiz.get().getAuthor().equals(user)) {
+                    quizRepository.delete(quiz.get());
+                    return new ResponseEntity(HttpStatus.NO_CONTENT);
+                } else {
+                    return new ResponseEntity(HttpStatus.FORBIDDEN);
+                }
+            }
+            return new ResponseEntity(HttpStatus.NOT_FOUND);
+        }
+
+    }
+  learner_created: true
 feedback_link: https://hyperskill.org/projects/91/stages/509/implement
 status: Unchecked
 record: -1
