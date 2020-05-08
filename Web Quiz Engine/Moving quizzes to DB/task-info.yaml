@@ -759,33 +759,6 @@ files:
 
     }
   learner_created: false
-- name: src/engine/AnswerQuiz.java
-  visible: true
-  text: |
-    package engine;
-
-    public class AnswerQuiz {
-
-        public static AnswerQuiz CORRECT_ANSWER = new AnswerQuiz(true, "Congratulations, you're right!");
-        public static AnswerQuiz WRONG_ANSWER = new AnswerQuiz(false, "Wrong answer! Please, try again.");
-
-        private final boolean success;
-        private final String feedback;
-
-        public AnswerQuiz(boolean success, String feedback) {
-            this.success = success;
-            this.feedback = feedback;
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public String getFeedback() {
-            return feedback;
-        }
-    }
-  learner_created: true
 - name: src/resources/application.properties
   visible: true
   text: |
@@ -834,135 +807,36 @@ files:
         compile("org.springframework.boot:spring-boot-starter-web")
     }
   learner_created: true
-- name: src/engine/Quiz.java
+- name: src/engine/models/AnswerQuiz.java
   visible: true
-  text: |
-    package engine;
-
-    import com.fasterxml.jackson.annotation.JsonIgnore;
-    import com.fasterxml.jackson.annotation.JsonProperty;
-
-    import javax.validation.constraints.NotEmpty;
-    import javax.validation.constraints.Size;
-    import java.util.*;
-
-    public class Quiz {
-
-        private int id;
-
-        @NotEmpty(message = "Title is mandatory!")
-        private String title;
-
-        @NotEmpty(message = "Text is mandatory!")
-        private String text;
-
-        @Size(min = 2)
-        private String[] options;
-
-        @JsonIgnore
-        private int answer;
-
-        public int getId() {
-            return id;
-        }
-
-        public void setId(int id) {
-            this.id = id;
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public void setTitle(String title) {
-            this.title = title;
-        }
-
-        public String getText() {
-            return text;
-        }
-
-        public void setText(String text) {
-            this.text = text;
-        }
-
-        public String[] getOptions() {
-            return options;
-        }
-
-        public void setOptions(String[] options) {
-            this.options = options;
-        }
-
-        @JsonIgnore
-        public int getAnswer() {
-            return answer;
-        }
-
-        @JsonProperty
-        public void setAnswer(int answer) {
-            this.answer = answer;
-        }
-
-        public boolean isCorrectAnswer(int answer) {
-            return this.answer == answer;
-        }
-    }
   learner_created: true
-- name: src/engine/QuizController.java
+- name: src/engine/controllers/UserController.java
   visible: true
-  text: |-
-    package engine;
-
-    import org.springframework.http.HttpStatus;
-    import org.springframework.web.bind.annotation.*;
-    import org.springframework.web.server.ResponseStatusException;
-
-    import java.util.*;
-
-    @RestController
-    public class QuizController {
-
-        List<Quiz> quizzes = new ArrayList<>();
-
-        private int getNextId() {
-            return quizzes.size() + 1;
-        }
-
-        private void checkArrayBounds(int id) {
-            if (id < 1 || id > quizzes.size()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND);
-            }
-        }
-
-        @PostMapping(path = "api/quizzes", consumes = "application/json")
-        public Quiz addQuiz(@RequestBody Quiz quiz) {
-            quiz.setId(getNextId());
-            quizzes.add(quiz);
-            return quiz;
-        }
-
-        @GetMapping(path = "api/quizzes/{id}")
-        public Quiz getQuiz(@PathVariable int id) {
-            checkArrayBounds(id);
-            return quizzes.get(id - 1);
-        }
-
-        @GetMapping(path = "api/quizzes")
-        public List<Quiz> getQuizzes() {
-            return quizzes;
-        }
-
-        @PostMapping(path = "api/quizzes/{id}/solve")
-        public AnswerQuiz solveQuiz(@PathVariable int id, @RequestParam(name = "answer") int answer) {
-            checkArrayBounds(id);
-            Quiz quiz = quizzes.get(id - 1);
-
-            if (quiz.isCorrectAnswer(answer)) return AnswerQuiz.CORRECT_ANSWER;
-            else return AnswerQuiz.WRONG_ANSWER;
-        }
-    }
+  learner_created: true
+- name: src/engine/controllers/QuizController.java
+  visible: true
+  learner_created: true
+- name: src/engine/services/UserService.java
+  visible: true
+  learner_created: true
+- name: src/engine/repositories/QuizRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/models/Quiz.java
+  visible: true
+  learner_created: true
+- name: src/engine/repositories/UserRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/SecurityConfiguration.java
+  visible: true
+  learner_created: true
+- name: src/engine/models/Guess.java
+  visible: true
+  learner_created: true
+- name: src/engine/models/User.java
+  visible: true
   learner_created: true
 feedback_link: https://hyperskill.org/projects/91/stages/507/implement
-status: Solved
+status: Failed
 record: 4

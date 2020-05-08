@@ -13,6 +13,7 @@ import javax.validation.constraints.Email;
 import javax.validation.constraints.Size;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
 
 @Entity
 public class User implements UserDetails {
@@ -21,7 +22,7 @@ public class User implements UserDetails {
     @Column
     @GeneratedValue
     private Integer id;
-    @Email
+    @Email(regexp = ".*\\..*")
     @Column
     private String email;
     @Size(min=5)
@@ -82,5 +83,19 @@ public class User implements UserDetails {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(getEmail(), user.getEmail()) &&
+                Objects.equals(getPassword(), user.getPassword());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getEmail(), getPassword());
     }
 }

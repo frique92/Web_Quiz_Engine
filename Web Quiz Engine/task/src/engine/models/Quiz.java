@@ -1,5 +1,6 @@
 package engine.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.persistence.*;
@@ -32,6 +33,8 @@ public class Quiz {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private int[] answer;
 
+    @JsonIgnore
+    @ManyToOne(cascade = CascadeType.DETACH)
     private User author;
 
     public User getAuthor() {
@@ -83,6 +86,7 @@ public class Quiz {
     }
 
     public boolean isCorrectAnswer(int[] answer) {
-        return Arrays.equals(this.answer, answer);
+        int[] currentAnswer = this.answer == null ? new int[0] : this.answer;
+        return Arrays.equals(currentAnswer, answer);
     }
 }
