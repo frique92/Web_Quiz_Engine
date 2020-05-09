@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import javax.persistence.*;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Entity
@@ -36,6 +37,30 @@ public class Quiz {
     @JsonIgnore
     @ManyToOne(cascade = CascadeType.DETACH)
     private User author;
+
+    @Column
+    @JsonIgnore
+    private LocalDateTime completedAt;
+
+    @Column
+    @JsonIgnore
+    private boolean completed;
+
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
+    }
+
+    public LocalDateTime getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
+    }
 
     public User getAuthor() {
         return author;
@@ -88,5 +113,19 @@ public class Quiz {
     public boolean isCorrectAnswer(int[] answer) {
         int[] currentAnswer = this.answer == null ? new int[0] : this.answer;
         return Arrays.equals(currentAnswer, answer);
+    }
+
+    @Override
+    public String toString() {
+        return "Quiz{" +
+                "id=" + id +
+                ", title='" + title + '\'' +
+                ", text='" + text + '\'' +
+                ", options=" + Arrays.toString(options) +
+                ", answer=" + Arrays.toString(answer) +
+                ", author=" + author +
+                ", completedAt=" + completedAt +
+                ", completed=" + completed +
+                '}';
     }
 }
