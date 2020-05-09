@@ -25,7 +25,7 @@ public class User implements UserDetails {
     @Email(regexp = ".*\\..*")
     @Column
     private String email;
-    @Size(min=5)
+    @Size(min = 5)
     @Column
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
@@ -97,5 +97,14 @@ public class User implements UserDetails {
     @Override
     public int hashCode() {
         return Objects.hash(getEmail(), getPassword());
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id=" + id +
+                ", email='" + email + '\'' +
+                ", password='" + password + '\'' +
+                '}';
     }
 }
